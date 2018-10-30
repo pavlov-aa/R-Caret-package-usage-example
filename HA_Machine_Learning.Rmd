@@ -1,0 +1,109 @@
+---
+title: "How well do people do certain sport activities?"
+author: "Pavlov Alexander"
+date: '29 October 2018 г '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+
+
+In this study we built a model to predict how well people do certain sport activities using the given data, that consists of 19622 observations about different people doing different exercises with special failures. Target variable is manner of doing exercises. Accuracy on validation set (20% of train set) > 98%. Most important factors - roll_belt, vaw_belt, pitch_belt.
+
+## Setup
+
+```{r installations, message=FALSE, warning=FALSE}
+library("caret")
+setwd("C:/Users/pavlov-aa/Desktop/Нерабочие вопросы/Coursera/ml")
+train<-read.csv("pml-training.csv")
+test<-read.csv("pml-testing.csv")
+```
+
+## Forming train and test data
+
+```{r remcol1}
+# Removing columns from TEST with all NA's
+na_stat_test<-colSums(is.na(test))/nrow(test)
+table(na_stat_test)
+indx<-which(na_stat_test!=1)
+ncol(test)
+length(indx)
+test<-test[,indx]
+
+
+# Removing unary columns from test
+unique_number_of_levels<-apply(test, 2, function(x) length(unique(x)))
+indx<-which(unique_number_of_levels!=1)
+ncol(test)
+length(indx)
+test<-test[,indx]
+
+# Now we intersect columns of train and test sets and add target variable "Classe" to form new train set.
+cols<-as.character(colnames(test))
+cols<-intersect(cols,colnames(train))
+train<-train[,c(cols,"classe")]
+
+
+# Now let us check NA statistics in train
+stat<-(summary(train))
+na_stat<-colSums(is.na(train))/nrow(train)
+table(na_stat)
+# We see no missing values
+
+# Removing unary columns from train
+unique_number_of_levels<-apply(train, 2, function(x) length(unique(x)))
+indx<-which(unique_number_of_levels!=1)
+ncol(train)
+length(indx)
+train<-train[,indx]
+
+
+# Now, let us manually exclude some columns that are not approriate for modelling:
+hide<-c("user_name","cvtd_timestamp","raw_timestamp_part_1","raw_timestamp_part_2","raw_timestamp","num_window","X")
+train<-train[,setdiff(colnames(train),hide)]
+test<-test[,intersect(colnames(train),colnames(test))]
+rm(cols,indx,na_stat,na_stat_test,stat,unique_number_of_levels,hide)
+
+```
+
+## Modelling
+
+I ve tries both ways - splitting train set by 75/25. Used the first split  to learn the model and the second to test it. After that, I've tried cross validation. Results became a bit better. So, Now I present my solution with simple tree algorithm with k-folds cross-validation with k=3. I havent used such algorithms as gb or rf just to speed up calculations, although It can give better results with using grid search for optimal parameters.
+But to be sure, that we haven't overtrained i would like to have validation set. For me it is just one more stage of checking.
+
+```{r validation set}
+set.seed(123)
+index <- createDataPartition(train$classe,p=0.8,list=F)
+trainSet <- train[index,]
+validationSet <- train[-index,]
+```
+
+After splitting train on 80/20 lets try to build model on 80%.
+
+```{r models}
+# default model with cv
+train_control <- trainControl(method="cv", number=3)
+tree_bag<-train(trainSet[,-53],trainSet$classe,method="treebag",trControl=train_control)
+
+```
+
+## Validation
+``` {r validation}
+pred_train<-predict.train(tree_bag,trainSet)
+confusionMatrix(pred_train,trainSet[,"classe"])
+vars<-varImp(object=tree_bag)
+plot(vars)
+
+pred_validation<-predict(tree_bag,validationSet)
+confusionMatrix(pred_validation,validationSet[,"classe"])
+```
+
+## Predictions for assignment
+``` {r pred}
+pred_test<-predict(tree_bag,test)
+write.csv(pred_test, file="predictions.csv",row.names = F)
+```
