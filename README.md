@@ -10,6 +10,7 @@ pml-testing.csv (TEST)
 FINAL PREDICTIONS FOR TEST:
 predictions.csv
 
+
 WORKING FILES:
-HA_Machine_Learning.Rmd /n
+HA_Machine_Learning.Rmd  and  
 HA_machine_Learning.html
